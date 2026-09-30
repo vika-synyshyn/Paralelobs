@@ -1,0 +1,22 @@
+#include <iostream>
+#include <thread>
+
+using namespace std;
+
+void Thread1() {
+    cout << 1 << flush;
+}
+
+void Thread2() {
+    cout << 2 << flush;
+}
+
+int main() {
+    thread first(Thread1);
+    thread second(Thread2);
+
+    first.detach();
+    second.detach();
+
+    return 0;
+}
