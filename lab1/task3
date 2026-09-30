@@ -1,0 +1,52 @@
+#include <iostream>
+#include <thread>
+#include <list>
+#include <algorithm>
+
+using namespace std;
+
+list<int> l;
+
+void AddToList(int firstNumber) {
+    for (int i = 0; i < 10; ++i) {
+        int number = firstNumber + i;
+
+        l.push_back(number);
+
+        cout << "[ADD] Number " << number
+            << " added to the list\n";
+    }
+}
+
+void ListContains(int number) {
+    for (int i = 0; i < 10; ++i) {
+        bool found =
+            find(l.begin(), l.end(), number) != l.end();
+
+        cout << "[CHECK] Number " << number
+            << (found ? " is present\n" : " is absent\n");
+    }
+}
+
+int main() {
+    int firstNumber = 10;
+    int searchedNumber = 15;
+
+    cout  << "Adding numbers: " << firstNumber
+        << ".." << firstNumber + 9 << '\n'
+        << "Searching for: " << searchedNumber << "\n\n";
+
+    thread writer(AddToList, firstNumber);
+    thread reader(ListContains, searchedNumber);
+
+    writer.join();
+    reader.join();
+
+    cout << "\nFinal list: ";
+
+    for (int number : l) {
+        cout << number << ' ';
+    }
+
+    return 0;
+}
