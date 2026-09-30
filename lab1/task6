@@ -1,0 +1,138 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <future>
+#include <vector>
+#include <string>
+#include <functional>
+#include <utility>
+
+using namespace std;
+
+template <typename Function>
+future<void> RunDetached(Function action) {
+    packaged_task<void()> task(action);
+    future<void> result = task.get_future();
+
+    thread worker(move(task));
+    worker.detach();
+
+    return result;
+}
+
+class someData {
+public:
+    string name;
+    string surname;
+    string address;
+    int age = 0;
+};
+
+class exchangePerson {
+private:
+    someData data;
+    mutex dataMutex;
+
+    static void PrintPerson(const string& label,
+        const someData& person) {
+        cout << label << '\n'
+            << "  Name:    " << person.name << '\n'
+            << "  Surname: " << person.surname << '\n'
+            << "  Address: " << person.address << '\n'
+            << "  Age:     " << person.age << '\n';
+    }
+
+public:
+    static void JohnDoe(exchangePerson& person) {
+        lock_guard<mutex> protection(person.dataMutex);
+
+        person.data.name = "John";
+        person.data.surname = "Doe";
+        person.data.address = "Unknown";
+        person.data.age = 120;
+    }
+
+    static void JacobSmith(exchangePerson& person) {
+        lock_guard<mutex> protection(person.dataMutex);
+
+        person.data.name = "Jacob";
+        person.data.surname = "Smith";
+        person.data.address = "Known";
+        person.data.age = 1;
+    }
+
+    static void Swap(exchangePerson& first,
+        exchangePerson& second) {
+        if (&first == &second) {
+            cout << "Exchange skipped: the same object.\n";
+            return;
+        }
+
+        lock(first.dataMutex, second.dataMutex);
+
+        lock_guard<mutex> firstLock(
+            first.dataMutex, adopt_lock
+        );
+
+        lock_guard<mutex> secondLock(
+            second.dataMutex, adopt_lock
+        );
+
+        cout << "\n--- BEFORE EXCHANGE ---\n";
+
+        PrintPerson("Person A", first.data);
+        PrintPerson("Person B", second.data);
+
+        swap(first.data, second.data);
+
+        cout << "\n--- AFTER EXCHANGE ---\n";
+
+        PrintPerson("Person A", first.data);
+        PrintPerson("Person B", second.data);
+    }
+};
+
+int main() {
+    exchangePerson first;
+    exchangePerson second;
+
+    vector<future<void>> results;
+
+    results.push_back(
+        RunDetached([&first] {
+            exchangePerson::JohnDoe(first);
+            })
+    );
+
+    results.push_back(
+        RunDetached([&first] {
+            exchangePerson::JacobSmith(first);
+            })
+    );
+
+    results.push_back(
+        RunDetached([&second] {
+            exchangePerson::JohnDoe(second);
+            })
+    );
+
+    results.push_back(
+        RunDetached([&second] {
+            exchangePerson::JacobSmith(second);
+            })
+    );
+
+    for (auto& result : results) {
+        result.get();
+    }
+
+    thread exchanger(
+        exchangePerson::Swap,
+        ref(first),
+        ref(second)
+    );
+
+    exchanger.join();
+
+    return 0;
+}
